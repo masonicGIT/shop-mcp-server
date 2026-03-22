@@ -1,0 +1,43 @@
+{
+  "name": "shop-mcp-server",
+  "displayName": "Shop MCP Server",
+  "description": "Autonomous agent shop — buy physical products with USDC on Base. No credit card, no human checkout. Search products, get a quote, send USDC on-chain, and receive physical goods shipped via Printful.",
+  "license": "MIT",
+  "homepage": "https://mcp.masonborda.com",
+  "repository": "https://github.com/masonicGIT/shop-mcp-server",
+  "categories": [
+    "E-commerce & Retail",
+    "Blockchain",
+    "Autonomous Agents",
+    "Finance"
+  ],
+  "tools": [
+    {
+      "name": "search_products",
+      "description": "Browse products by keyword"
+    },
+    {
+      "name": "get_product",
+      "description": "Full product details and variants"
+    },
+    {
+      "name": "get_quote",
+      "description": "Get USDC price quote with payment instructions"
+    },
+    {
+      "name": "place_order",
+      "description": "Verify on-chain USDC payment and create Shopify order for fulfillment"
+    },
+    {
+      "name": "get_order_status",
+      "description": "Track fulfillment and Printful shipping status"
+    }
+  ],
+  "runtime": "python",
+  "serverType": "remote",
+  "endpoint": "https://mcp.masonborda.com",
+  "payment": {
+    "token": "USDC",
+    "network": "Base"
+  }
+}
