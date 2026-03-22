@@ -19,6 +19,10 @@ from typing import Optional
 
 app = FastAPI(title="shop.masonborda.com MCP", version="2.0.0")
 
+@app.get("/ping")
+async def ping():
+    return {"status": "ok"}
+
 # --- Config ---
 SHOPIFY_STORE   = os.environ.get("SHOPIFY_STORE", "t0uqna-qr.myshopify.com")
 SHOPIFY_TOKEN   = os.environ.get("SHOPIFY_TOKEN", "")
