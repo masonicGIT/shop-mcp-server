@@ -13,8 +13,10 @@ Tools:
 import os
 import time
 import httpx
+import json
 from fastapi import FastAPI, HTTPException
 from fastapi.requests import Request
+from fastapi.responses import JSONResponse
 from typing import Optional
 
 app = FastAPI(title="shop.masonborda.com MCP", version="2.0.0")
@@ -459,6 +461,148 @@ async def get_order_status(request: Request):
         "created_at": order.get("created_at"),
         "printful": printful_data,
     }
+
+
+# --- MCP Protocol Endpoint ---
+MCP_TOOLS = [
+    {
+        "name": "search_products",
+        "description": "Search for products in the hat store. Returns available hats with names, descriptions, and prices.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Search query (e.g. 'accredited investor hat')"}
+            },
+            "required": []
+        }
+    },
+    {
+        "name": "get_product",
+        "description": "Get full details for a specific product by its Shopify variant ID.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "variant_id": {"type": "integer", "description": "Shopify variant ID of the product"}
+            },
+            "required": ["variant_id"]
+        }
+    },
+    {
+        "name": "get_quote",
+        "description": "Get a shipping quote and USDC payment amount for a product. Returns the wallet address to send payment to.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "variant_id": {"type": "integer", "description": "Shopify variant ID"},
+                "shipping_name": {"type": "string", "description": "Recipient full name"},
+                "shipping_address1": {"type": "string", "description": "Street address"},
+                "shipping_city": {"type": "string", "description": "City"},
+                "shipping_state": {"type": "string", "description": "State (2-letter code)"},
+                "shipping_zip": {"type": "string", "description": "ZIP code"},
+                "shipping_country": {"type": "string", "description": "Country code (default: US)"}
+            },
+            "required": ["variant_id", "shipping_name", "shipping_address1", "shipping_city", "shipping_state", "shipping_zip"]
+        }
+    },
+    {
+        "name": "place_order",
+        "description": "Place an order after sending USDC payment on Base. Verifies the on-chain transaction and creates the order.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "quote_id": {"type": "string", "description": "Quote ID from get_quote"},
+                "tx_hash": {"type": "string", "description": "Transaction hash of USDC payment on Base"},
+                "variant_id": {"type": "integer", "description": "Shopify variant ID"},
+                "shipping_name": {"type": "string"},
+                "shipping_address1": {"type": "string"},
+                "shipping_city": {"type": "string"},
+                "shipping_state": {"type": "string"},
+                "shipping_zip": {"type": "string"},
+                "shipping_country": {"type": "string"}
+            },
+            "required": ["quote_id", "tx_hash", "variant_id", "shipping_name", "shipping_address1", "shipping_city", "shipping_state", "shipping_zip"]
+        }
+    },
+    {
+        "name": "get_order_status",
+        "description": "Check the status of a placed order by order ID.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "order_id": {"type": "string", "description": "Order ID returned from place_order"}
+            },
+            "required": ["order_id"]
+        }
+    }
+]
+
+@app.post("/mcp")
+async def mcp_endpoint(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+
+    method = body.get("method", "")
+    msg_id = body.get("id", 1)
+    jsonrpc = body.get("jsonrpc", "2.0")
+
+    if method == "initialize":
+        return JSONResponse(content={
+            "jsonrpc": jsonrpc,
+            "id": msg_id,
+            "result": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {"tools": {}},
+                "serverInfo": {"name": "shop-mcp-server", "version": "2.0.0"}
+            }
+        })
+
+    elif method == "tools/list":
+        return JSONResponse(content={
+            "jsonrpc": jsonrpc,
+            "id": msg_id,
+            "result": {"tools": MCP_TOOLS}
+        })
+
+    elif method == "tools/call":
+        tool_name = body.get("params", {}).get("name", "")
+        tool_args = body.get("params", {}).get("arguments", {})
+        # Route to existing tool handlers
+        from fastapi.testclient import TestClient
+        # Forward to the REST endpoint
+        rest_map = {
+            "search_products": "/tools/search_products",
+            "get_product": "/tools/get_product",
+            "get_quote": "/tools/get_quote",
+            "place_order": "/tools/place_order",
+            "get_order_status": "/tools/get_order_status",
+        }
+        if tool_name not in rest_map:
+            return JSONResponse(content={
+                "jsonrpc": jsonrpc,
+                "id": msg_id,
+                "error": {"code": -32601, "message": f"Unknown tool: {tool_name}"}
+            })
+        client = TestClient(app)
+        resp = client.post(rest_map[tool_name], json=tool_args)
+        return JSONResponse(content={
+            "jsonrpc": jsonrpc,
+            "id": msg_id,
+            "result": {
+                "content": [{"type": "text", "text": json.dumps(resp.json())}]
+            }
+        })
+
+    elif method == "notifications/initialized":
+        return JSONResponse(content={"jsonrpc": jsonrpc, "id": msg_id, "result": {}})
+
+    else:
+        return JSONResponse(content={
+            "jsonrpc": jsonrpc,
+            "id": msg_id,
+            "error": {"code": -32601, "message": f"Method not found: {method}"}
+        })
 
 
 # --- Health ---
