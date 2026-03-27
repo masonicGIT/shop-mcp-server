@@ -5,6 +5,8 @@
 Live at: **https://mcp.masonborda.com**  
 MCP manifest: **https://mcp.masonborda.com/.well-known/mcp.json**
 
+[![The Investor Har Store MCP server](https://glama.ai/mcp/servers/masonicGIT/shop-mcp-server/badges/card.svg)](https://glama.ai/mcp/servers/masonicGIT/shop-mcp-server)
+
 ## How It Works
 
 1. **Search** → browse products (hats, merch)
